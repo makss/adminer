@@ -7,11 +7,12 @@ $SCHEMA = ($_GET["schema"] ? $_GET["schema"] : $_COOKIE["adminer_schema-" . str_
 preg_match_all('~([^:]+):([-0-9.]+)x([-0-9.]+)(_|$)~', $SCHEMA, $matches, PREG_SET_ORDER);
 foreach ($matches as $i => $match) {
 	$table_pos[$match[1]] = array($match[2], $match[3]);
-	$table_pos_js[] = "\n\t'" . js_escape($match[1]) . "': [ $match[2], $match[3] ]";
 }
 
-$top = 0;
+$top = $topNext = 0;
 $base_left = -1;
+$column = 0;
+$column_max = 5;
 $schema = array(); // table => array("fields" => array(name => field), "pos" => array(top, left), "references" => array(table => array(left => array(source, target))))
 $referenced = array(); // target_table => array(table => array(left => target_column))
 $lefts = array(); // float => bool
@@ -26,7 +27,19 @@ foreach (table_status('', true) as $table => $table_status) {
 		$field["pos"] = $pos;
 		$schema[$table]["fields"][$name] = $field;
 	}
-	$schema[$table]["pos"] = ($table_pos[$table] ? $table_pos[$table] : array($top, 0));
+    if ($table_pos[$table]) {
+        $schema[$table]["pos"] = $table_pos[$table];
+        $top = max($top, $topNext, $schema[$table]["pos"][0] + 2.5 + $pos);
+        $topNext = $top;
+    } else {
+        $schema[$table]["pos"] = $table_pos[$table] = array($top, $column * 16);
+        $topNext = max($topNext, $schema[$table]["pos"][0] + 2.5 + $pos);
+        $column++;
+        if ($column >= $column_max) {
+            $column = 0;
+            $top = $topNext;
+        }
+    }
 	foreach ($adminer->foreignKeys($table) as $val) {
 		if (!$val["db"]) {
 			$left = $base_left;
@@ -44,8 +57,10 @@ foreach (table_status('', true) as $table => $table_status) {
 			$lefts[(string) $left] = true;
 		}
 	}
-	$top = max($top, $schema[$table]["pos"][0] + 2.5 + $pos);
+    $table_pos_js[] = "\n\t'" . js_escape($table) . "': [{$schema[$table]["pos"][0]}, {$schema[$table]["pos"][1]}]";
+    $SCHEMA .= "{$table}:{$schema[$table]["pos"][0]}x{$schema[$table]["pos"][1]}_";
 }
+$top = $topNext;
 
 ?>
 <div id="schema" style="height: <?php echo $top; ?>em;">
@@ -107,4 +122,7 @@ foreach ($schema as $name => $table) {
 }
 ?>
 </div>
-<p class="links"><a href="<?php echo h(ME . "schema=" . urlencode($SCHEMA)); ?>" id="schema-link"><?php echo lang('Permanent link'); ?></a>
+<p class="links">
+    <a href="<?php echo h(ME . "schema=" . urlencode(trim($SCHEMA, '_'))); ?>" id="schema-link"><?php echo lang('Permanent link'); ?></a>
+    <a href="<?php echo h(ME . "schema=reset"); ?>"><?php echo lang('Schema Reset'); ?></a>
+</p>
