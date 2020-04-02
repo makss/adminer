@@ -1,4 +1,9 @@
 <?php
+if (@$_GET["schema"] == 'reset') {
+    cookie("adminer_schema-" . str_replace(".", "_", DB), "", -1);
+    redirect(ME . "schema=");
+}
+
 page_header(lang('Database schema'), "", array(), h(DB . ($_GET["ns"] ? ".$_GET[ns]" : "")));
 
 $table_pos = array();
@@ -124,5 +129,5 @@ foreach ($schema as $name => $table) {
 </div>
 <p class="links">
     <a href="<?php echo h(ME . "schema=" . urlencode(trim($SCHEMA, '_'))); ?>" id="schema-link"><?php echo lang('Permanent link'); ?></a>
-    <a href="<?php echo h(ME . "schema=reset"); ?>"><?php echo lang('Schema Reset'); ?></a>
+    <a href="<?php echo h(ME . "schema=reset"); ?>"><?php echo lang('Default values'); ?></a>
 </p>
